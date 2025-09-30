@@ -42,6 +42,15 @@
     <option value="7000">7 Sekunden</option>
     <option value="0">Unendlich</option>
   </select>
+  Wiederholungen pro Gewinde:
+  <select id="repeatSelect">
+    <!-- Optionen von 1 bis 10 -->
+    <script>
+      for(let i=1;i<=10;i++){
+        document.write(`<option value="${i}"${i===3?' selected':''}>${i}</option>`);
+      }
+    </script>
+  </select>
   <button id="startBtn">Start</button>
 </div>
 
@@ -74,12 +83,14 @@ let richtigZaehler = {};
 let falschZaehler = {};
 let currentGewinde = "";
 let lastGewinde = null;
+let lastWert = null;
 let timer;
 let timerInterval;
 let quizActive = false;
 let timeLimit = 5000;
 let totalCorrect = 0;
 let totalAnswers = 0;
+let repeatTarget = 3;
 
 function resetCounters() {
   richtigZaehler = {};
@@ -91,17 +102,18 @@ function resetCounters() {
 }
 
 function pickRandomGewinde() {
-  let remaining = Object.keys(gewinde).filter(g => richtigZaehler[g] < 3);
+  let remaining = Object.keys(gewinde).filter(g => richtigZaehler[g] < repeatTarget);
   if (remaining.length === 0) return null;
 
-  // Vermeide Wiederholung direkt hintereinander
-  if (remaining.length > 1 && lastGewinde !== null) {
-    remaining = remaining.filter(g => g !== lastGewinde);
+  if (remaining.length > 1) {
+    remaining = remaining.filter(g => g !== lastGewinde && gewinde[g] !== lastWert);
+    if (remaining.length === 0) remaining = Object.keys(gewinde).filter(g => richtigZaehler[g] < repeatTarget);
   }
 
   const index = Math.floor(Math.random() * remaining.length);
   lastGewinde = remaining[index];
-  return remaining[index];
+  lastWert = gewinde[lastGewinde];
+  return lastGewinde;
 }
 
 function startQuiz() {
@@ -110,6 +122,7 @@ function startQuiz() {
   document.getElementById("answer").disabled = false;
   document.getElementById("answer").focus();
   timeLimit = parseInt(document.getElementById("timeSelect").value);
+  repeatTarget = parseInt(document.getElementById("repeatSelect").value);
   totalCorrect = 0;
   totalAnswers = 0;
   resetCounters();
@@ -130,9 +143,8 @@ function nextQuestion() {
     document.getElementById("score").innerText = "";
     document.getElementById("answer").disabled = true;
 
-    // Finale Anzeige
-    document.getElementById("finalBarContainer").style.display = "block";
     const correctPercent = totalAnswers ? (totalCorrect / totalAnswers) * 100 : 0;
+    document.getElementById("finalBarContainer").style.display = "block";
     document.getElementById("finalCorrect").style.width = correctPercent + "%";
     document.getElementById("finalWrong").style.width = (100 - correctPercent) + "%";
     document.getElementById("finalPercent").innerText = Math.round(correctPercent) + "% richtig";
@@ -178,19 +190,19 @@ function checkAnswer(timeout = false) {
 }
 
 function updateScore() {
-  let text = "Richtige Antworten pro Gewinde:\n";
+  let text = `Richtige Antworten pro Gewinde (Ziel: ${repeatTarget}):\n`;
   for (let g in richtigZaehler) {
-    text += `${g}: ${richtigZaehler[g]} / 3\n`;
+    text += `${g}: ${richtigZaehler[g]} / ${repeatTarget}\n`;
   }
   document.getElementById("score").innerText = text;
 }
 
 function updateProgress() {
-  const progress = Math.min(100, (totalCorrect / 24) * 100);
+  const totalTarget = repeatTarget * Object.keys(gewinde).length;
+  const progress = Math.min(100, (totalCorrect / totalTarget) * 100);
   document.getElementById("progressBar").style.width = progress + "%";
 }
 
-// Timer Bar Animation
 function startTimerBar(duration) {
   const bar = document.getElementById("timerBar");
   let start = Date.now();
@@ -212,7 +224,6 @@ function stopTimerBar() {
   document.getElementById("timerBar").style.width = "0%";
 }
 
-// Event Listeners
 document.getElementById("startBtn").addEventListener("touchstart", startQuiz);
 document.getElementById("startBtn").addEventListener("click", startQuiz);
 document.getElementById("answer").addEventListener("keydown", (e) => {
