@@ -73,13 +73,14 @@ const gewinde = {
 let richtigZaehler = {};
 let falschZaehler = {};
 let currentGewinde = "";
+let lastGewinde = null;
 let timer;
+let timerInterval;
 let quizActive = false;
 let timeLimit = 5000;
 let totalCorrect = 0;
 let totalAnswers = 0;
 
-// Initialisiere Zähler
 function resetCounters() {
   richtigZaehler = {};
   falschZaehler = {};
@@ -90,9 +91,16 @@ function resetCounters() {
 }
 
 function pickRandomGewinde() {
-  const remaining = Object.keys(gewinde).filter(g => richtigZaehler[g] < 3);
+  let remaining = Object.keys(gewinde).filter(g => richtigZaehler[g] < 3);
   if (remaining.length === 0) return null;
+
+  // Vermeide Wiederholung direkt hintereinander
+  if (remaining.length > 1 && lastGewinde !== null) {
+    remaining = remaining.filter(g => g !== lastGewinde);
+  }
+
   const index = Math.floor(Math.random() * remaining.length);
+  lastGewinde = remaining[index];
   return remaining[index];
 }
 
@@ -112,6 +120,7 @@ function startQuiz() {
 
 function nextQuestion() {
   clearTimeout(timer);
+  stopTimerBar();
   resetTimerBar();
 
   currentGewinde = pickRandomGewinde();
@@ -121,14 +130,14 @@ function nextQuestion() {
     document.getElementById("score").innerText = "";
     document.getElementById("answer").disabled = true;
 
-    // Zeige finalen Balken
+    // Finale Anzeige
     document.getElementById("finalBarContainer").style.display = "block";
     const correctPercent = totalAnswers ? (totalCorrect / totalAnswers) * 100 : 0;
     document.getElementById("finalCorrect").style.width = correctPercent + "%";
     document.getElementById("finalWrong").style.width = (100 - correctPercent) + "%";
     document.getElementById("finalPercent").innerText = Math.round(correctPercent) + "% richtig";
 
-    document.getElementById("startBtn").disabled = false; // Ermögliche Neustart
+    document.getElementById("startBtn").disabled = false;
     quizActive = false;
     return;
   }
@@ -138,7 +147,6 @@ function nextQuestion() {
   document.getElementById("answer").focus();
   document.getElementById("feedback").innerText = "";
 
-  // Timer nur starten, wenn Zeitlimit > 0
   if (timeLimit > 0) {
     startTimerBar(timeLimit);
     timer = setTimeout(() => {
@@ -152,6 +160,7 @@ function checkAnswer(timeout = false) {
   stopTimerBar();
   totalAnswers++;
   const input = parseFloat(document.getElementById("answer").value);
+
   if (!timeout && input === gewinde[currentGewinde]) {
     richtigZaehler[currentGewinde]++;
     totalCorrect++;
@@ -182,7 +191,6 @@ function updateProgress() {
 }
 
 // Timer Bar Animation
-let timerInterval;
 function startTimerBar(duration) {
   const bar = document.getElementById("timerBar");
   let start = Date.now();
